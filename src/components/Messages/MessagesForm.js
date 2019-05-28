@@ -8,6 +8,7 @@ import ProgressBar from './ProgressBar';
 class MessagesForm extends Component {
   state = {
     storageRef: firebase.storage().ref(),
+    typingRef: firebase.database().ref('typing'),
     privateMessagesRef: firebase.database().ref('privateMessages'),
     uploadTask: null,
     uploadState: '',
@@ -22,13 +23,30 @@ class MessagesForm extends Component {
 
   openModal = () => {
     this.setState({ modal: true })
-  }
+  };
+
   closeModal = () => {
     this.setState({ modal: false })
-  }
+  };
 
   handleChange = (event) => {
     this.setState({ [event.target.name]: event.target.value });
+  };
+
+  handleKeyDown = () => {
+    const { message, typingRef, channel, user } = this.state;
+
+    if (message) {
+      typingRef
+        .child(channel.id)
+        .child(user.uid)
+        .set(user.displayName)
+    } else {
+      typingRef
+        .child(channel.id)
+        .child(user.uid)
+        .remove()
+    }
   }
 
   createMessage = (fileUrl = null) => {
@@ -50,7 +68,7 @@ class MessagesForm extends Component {
 
   sendMessage = () => {
     const { getMessagesRef } = this.props;
-    const { message, channel } = this.state;
+    const { message, channel, user, typingRef } = this.state;
 
     if (message) {
       this.setState({
@@ -62,6 +80,10 @@ class MessagesForm extends Component {
         .set(this.createMessage())
         .then(() => {
           this.setState({ loading: false, message: '', errors: [] });
+          typingRef
+            .child(channel.id)
+            .child(user.uid)
+            .remove()
         })
         .catch(error => {
           console.log(error);
@@ -76,9 +98,9 @@ class MessagesForm extends Component {
       })
     }
   }
-  
+
   getPath = () => {
-    if(this.props.isPrivateChannel){
+    if (this.props.isPrivateChannel) {
       return `chat/private-${this.state.channel.id}`
     } else {
       return 'chat/public'
@@ -153,6 +175,7 @@ class MessagesForm extends Component {
           name='message'
           value={message}
           onChange={this.handleChange}
+          onKeyDown={this.handleKeyDown}
           style={{ marginBottom: '0.7em' }}
           label={<Button icon={'add'} />}
           labelPosition='left'
@@ -179,15 +202,15 @@ class MessagesForm extends Component {
             icon='cloud upload'
           />
         </Button.Group>
-          <FileModal
-            modal={modal}
-            closeModal={this.closeModal}
-            uploadFile={this.uploadFile}
-          />
-          <ProgressBar 
-            uploadState={uploadState}
-            percentUploaded={percentUploaded}
-          />
+        <FileModal
+          modal={modal}
+          closeModal={this.closeModal}
+          uploadFile={this.uploadFile}
+        />
+        <ProgressBar
+          uploadState={uploadState}
+          percentUploaded={percentUploaded}
+        />
       </Segment>
     )
   }
