@@ -1,5 +1,7 @@
 import React, { Component } from 'react'
 import firebase from '../../firebase'
+import { connect } from 'react-redux'
+import { setUserPosts } from '../../actions'
 import { Segment, Comment } from 'semantic-ui-react'
 import MessagesForm from './MessagesForm';
 import MessagesHeader from './MessagesHeader';
@@ -26,7 +28,7 @@ class Messages extends Component {
     const { channel, user } = this.state;
     if (channel && user) {
       this.addListener(channel.id);
-      this.addUserStarListener(channel.id, user.uid); 
+      this.addUserStarListener(channel.id, user.uid);
     }
   }
 
@@ -45,6 +47,7 @@ class Messages extends Component {
         messagesLoading: false,
       });
       this.countUniqueUsers(loadedMessages);
+      this.countUserPosts(loadedMessages);
     })
   };
 
@@ -54,7 +57,7 @@ class Messages extends Component {
       .child('starred')
       .once('value')
       .then(data => {
-        if(data.val() !== null){
+        if (data.val() !== null) {
           const channelIds = Object.keys(data.val());
           const prevStarred = channelIds.includes(channelId);
           this.setState({
@@ -65,7 +68,7 @@ class Messages extends Component {
   }
 
   getMessagesRef = () => {
-    const { messagesRef, privateMessagesRef, privateChannel} = this.state;
+    const { messagesRef, privateMessagesRef, privateChannel } = this.state;
     return privateChannel ? privateMessagesRef : messagesRef;
   }
 
@@ -76,7 +79,7 @@ class Messages extends Component {
   }
 
   starChannel = () => {
-    if(this.state.isChannelStarred) {
+    if (this.state.isChannelStarred) {
       this.state.usersRef
         .child(`${this.state.user.uid}/starred`)
         .update({
@@ -84,17 +87,17 @@ class Messages extends Component {
             name: this.state.channel.name,
             details: this.state.channel.details,
             createdBy: {
-              name:this.state.channel.createdBy.name,
+              name: this.state.channel.createdBy.name,
               avatar: this.state.channel.createdBy.avatar,
             }
           }
         })
-    }else {
+    } else {
       this.state.usersRef
         .child(`${this.state.user.uid}/starred`)
         .child(this.state.channel.id)
         .remove(err => {
-          if(err != null) {
+          if (err != null) {
             console.error(err);
           }
         })
@@ -121,7 +124,7 @@ class Messages extends Component {
     this.setState({ searchResults })
     this.setState({ searchLoading: false })
   }
-  
+
   countUniqueUsers = messages => {
     const uniqueUsers = messages.reduce((acc, message) => {
       if (!acc.includes(message.user.name)) {
@@ -132,6 +135,21 @@ class Messages extends Component {
     const plural = uniqueUsers.length > 1 || uniqueUsers.length === 0;
     const numUniqueUsers = `${uniqueUsers.length} user${plural ? 's' : ''}`
     this.setState({ numUniqueUsers });
+  }
+
+  countUserPosts = messages => {
+    let userPosts = messages.reduce((acc, message) => {
+      if (message.user.name in acc) {
+        acc[message.user.name].count += 1;
+      } else {
+        acc[message.user.name] = {
+          avatar: message.user.avatar,
+          count: 1
+        }
+      }
+      return acc;
+    }, {});
+    this.props.setUserPosts(userPosts);
   }
 
   displayMessages = (messages) => {
@@ -154,8 +172,8 @@ class Messages extends Component {
   }
 
   render() {
-    const { messagesRef, messages, channel, user, numUniqueUsers, 
-            searchTerm, searchResults, searchLoading, privateChannel, isChannelStarred } = this.state;
+    const { messagesRef, messages, channel, user, numUniqueUsers,
+      searchTerm, searchResults, searchLoading, privateChannel, isChannelStarred } = this.state;
 
     return (
       <React.Fragment>
@@ -166,7 +184,7 @@ class Messages extends Component {
           searchLoading={searchLoading}
           isPrivateChannel={privateChannel}
           handleStar={this.handleStar}
-          isChannelStarred= {isChannelStarred}
+          isChannelStarred={isChannelStarred}
         />
         <Segment>
           <Comment.Group className='messages' style={{ maxWidth: '100%' }}>
@@ -186,4 +204,4 @@ class Messages extends Component {
   }
 }
 
-export default Messages
+export default connect(null, { setUserPosts })(Messages)
